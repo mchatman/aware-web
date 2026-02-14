@@ -1,0 +1,8 @@
+{
+  "env": {
+    "BLUEFAIRY_API_URL": "https://bluefairy.fly.dev"
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}
