@@ -12,53 +12,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user info from bluefairy
-    const meResponse = await fetch(`${BLUEFAIRY_API_URL}/me`, {
+    // Call bluefairy to get the user's instance
+    const response = await fetch(`${BLUEFAIRY_API_URL}/instance`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
 
-    if (!meResponse.ok) {
+    if (response.status === 401) {
       return NextResponse.json(
         { message: 'Session expired' },
         { status: 401 }
       );
     }
 
-    const user = await meResponse.json();
-
-    // Look up instance via bluefairy's gateway proxy (bluefairy → tenant-orchestrator)
-    // bluefairy proxies /api/* to the tenant, but we need the instance info.
-    // Call tenant-orchestrator directly for the instance lookup.
-    const TENANT_ORCHESTRATOR_URL = process.env.TENANT_ORCHESTRATOR_URL || '';
-    if (!TENANT_ORCHESTRATOR_URL) {
-      return NextResponse.json(
-        { message: 'Tenant orchestrator not configured' },
-        { status: 500 }
-      );
-    }
-
-    const orchResponse = await fetch(
-      `${TENANT_ORCHESTRATOR_URL}/tenants/${user.id}/instance`
-    );
-
-    if (!orchResponse.ok) {
-      // Instance not found — it may not have been provisioned yet
+    if (response.status === 404) {
       return NextResponse.json(
         { message: 'No instance found. Please contact support.' },
         { status: 404 }
       );
     }
 
-    const instance = await orchResponse.json();
+    if (!response.ok) {
+      return NextResponse.json(
+        { message: 'Failed to look up instance' },
+        { status: response.status }
+      );
+    }
 
-    return NextResponse.json({
-      endpoint: `https://${instance.endpoint}.wareit.ai`,
-      status: instance.status,
-    });
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Instance lookup error:', error);
     return NextResponse.json(
-      { message: 'Failed to look up instance' },
+      { message: 'Failed to connect to server' },
       { status: 500 }
     );
   }
