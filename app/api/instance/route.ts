@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BLUEFAIRY_API_URL = process.env.BLUEFAIRY_API_URL || 'http://localhost:8080';
+const BLUEFAIRY_API_URL = process.env.BLUEFAIRY_API_URL || 'https://bluefairy-n68eu.ondigitalocean.app';
 
 export async function GET(request: NextRequest) {
   try {
