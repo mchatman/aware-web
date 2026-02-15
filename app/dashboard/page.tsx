@@ -2,46 +2,36 @@
 
 import { useEffect, useState } from 'react';
 
+const DASHBOARD_URL = 'https://dashboard.wareit.ai';
+
 export default function Dashboard() {
   const [status, setStatus] = useState<'loading' | 'redirecting' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [instanceUrl, setInstanceUrl] = useState('');
 
   useEffect(() => {
-    async function loadInstance() {
+    async function redirect() {
       try {
-        const response = await fetch('/api/instance');
-
-        if (response.status === 401) {
-          // Session expired, redirect to login
-          window.location.href = '/logout';
-          return;
-        }
-
+        // Get a fresh token from the login cookie
+        const response = await fetch('/api/auth/token');
         if (!response.ok) {
-          const data = await response.json();
-          setErrorMessage(data.message || 'Failed to load your AI assistant');
-          setStatus('error');
+          // Not authenticated
+          window.location.href = '/';
           return;
         }
 
-        const data = await response.json();
-        // Build redirect URL with gateway token for seamless auth
-        const url = data.gateway_token
-          ? `${data.endpoint}/?token=${data.gateway_token}`
-          : data.endpoint;
-        setInstanceUrl(url);
+        const { token } = await response.json();
         setStatus('redirecting');
 
-        // Redirect to the tenant instance
-        window.location.href = url;
+        // Redirect to dashboard.wareit.ai with the JWT
+        // The callback sets an HTTP-only cookie and redirects to /
+        window.location.href = `${DASHBOARD_URL}/auth/callback?token=${encodeURIComponent(token)}`;
       } catch (err) {
         setErrorMessage('Failed to connect to server');
         setStatus('error');
       }
     }
 
-    loadInstance();
+    redirect();
   }, []);
 
   if (status === 'error') {
@@ -49,20 +39,12 @@ export default function Dashboard() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-center space-y-4">
           <p className="text-red-400">{errorMessage}</p>
-          <div className="space-x-4">
-            <button
-              onClick={() => { setStatus('loading'); window.location.reload(); }}
-              className="text-blue-400 underline hover:text-blue-300"
-            >
-              Try again
-            </button>
-            <a
-              href="/logout"
-              className="text-gray-400 underline hover:text-gray-300"
-            >
-              Log out
-            </a>
-          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-blue-400 underline hover:text-blue-300"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );
@@ -73,16 +55,8 @@ export default function Dashboard() {
       <div className="text-white">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-          <p>{status === 'redirecting' ? 'Opening AI Assistant...' : 'Loading...'}</p>
+          <p>Opening your workspace...</p>
           <p className="text-sm text-gray-500">Please wait...</p>
-          {instanceUrl && (
-            <a
-              href={instanceUrl}
-              className="text-sm text-blue-400 underline hover:text-blue-300 mt-4"
-            >
-              Click here if not redirected
-            </a>
-          )}
         </div>
       </div>
     </div>
