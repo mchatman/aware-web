@@ -1,6 +1,6 @@
 {
   "env": {
-    "BLUEFAIRY_API_URL": "https://bluefairy.fly.dev"
+    "NEXT_PUBLIC_API_URL": "https://bluefairy-n68eu.ondigitalocean.app"
   },
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
