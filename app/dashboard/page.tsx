@@ -26,7 +26,10 @@ export default function Dashboard() {
         }
 
         const data = await response.json();
-        const url = data.endpoint;
+        // Build redirect URL with gateway token for seamless auth
+        const url = data.gateway_token
+          ? `${data.endpoint}/?token=${data.gateway_token}`
+          : data.endpoint;
         setInstanceUrl(url);
         setStatus('redirecting');
 
