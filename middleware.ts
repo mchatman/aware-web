@@ -1,19 +1,17 @@
 // middleware.ts — Runs on every matched route before rendering.
 // Handles two redirect rules:
 //   1. Unauthenticated users hitting /dashboard… are sent to the login page.
-//   2. Already-authenticated users on auth pages (/, /login, /signup) are
+//   2. Already-authenticated users on auth pages (/, /signup) are
 //      sent straight to /dashboard so they don’t see the login form again.
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { config as appConfig } from '@/lib/config';
 
-/** Cookie name must stay in sync with lib/config.ts (can’t import at edge). */
-const AUTH_COOKIE = 'token';
-
-const AUTH_PATHS = new Set(['/', '/login', '/signup']);
+const AUTH_PATHS = new Set(['/', '/signup']);
 
 export function middleware(request: NextRequest) {
-  const hasToken = request.cookies.has(AUTH_COOKIE);
+  const hasToken = request.cookies.has(appConfig.cookieName);
   const { pathname } = request.nextUrl;
 
   const isAuthPage = AUTH_PATHS.has(pathname);
@@ -33,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/signup', '/dashboard/:path*'],
+  matcher: ['/', '/signup', '/dashboard/:path*'],
 };

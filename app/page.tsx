@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 /** Shape of the JSON body returned by /api/auth/login and /api/auth/signup. */
 interface AuthResponseBody {
   message?: string;
-  accessToken?: string;
 }
 
 /**
