@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 /** Shape of the JSON body returned by /api/auth/login and /api/auth/signup. */
 interface AuthResponseBody {
@@ -14,10 +14,22 @@ interface AuthResponseBody {
  * to /dashboard where the external workspace is opened.
  */
 export default function Home() {
+  return (
+    <Suspense>
+      <AuthPage />
+    </Suspense>
+  );
+}
+
+function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get('error');
+  const [error, setError] = useState(
+    urlError === 'instance' ? 'Unable to connect to your workspace. Please try again.' : '',
+  );
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 

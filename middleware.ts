@@ -22,8 +22,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // Rule 2: skip the login/signup form when the user is already logged in.
-  if (isAuthPage && hasToken) {
+  // Rule 2: skip the login/signup form when the user is already logged in,
+  // unless there's an error query param (e.g. instance lookup failure).
+  if (isAuthPage && hasToken && !request.nextUrl.searchParams.has('error')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
