@@ -7,16 +7,9 @@ import type { InstanceResponse } from '@/lib/types';
 /**
  * GET /api/connect
  *
- * Server-side endpoint that reads the JWT from the httpOnly cookie and
- * resolves the user's tenant instance. Returns a workspace URL that
- * goes through bluefairy's reverse proxy (avoiding self-signed cert
- * issues and keeping the tenant URL hidden from the browser).
- *
- * Returns:
- *   200 { workspace_url, ready: true }  — tenant is up
- *   202 { ready: false }                — tenant exists but not ready
- *   401 { message }                     — not authenticated
- *   502 { message }                     — lookup failed
+ * Resolves the user's tenant instance and returns a workspace URL
+ * that goes through bluefairy's reverse proxy on api.wareit.ai.
+ * The browser redirects there directly (no iframe).
  */
 export async function GET(request: NextRequest) {
   const token = getAuthToken(request);
@@ -47,23 +40,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ready: false }, { status: 202 });
   }
 
-  // Build the workspace URL through bluefairy's reverse proxy.
-  // The iframe loads api.wareit.ai/workspace/ with the JWT as a query param.
-  // Bluefairy authenticates and proxies to the tenant over HTTP internally.
-  // The tenant app's WebSocket connects to wss://<host>/ (root), which
-  // bluefairy intercepts and proxies to the tenant.
+  // Redirect through bluefairy's workspace proxy.
+  // No iframe — the browser navigates directly to api.wareit.ai/workspace/
+  // which reverse-proxies to the tenant over HTTP internally.
   const workspaceUrl = `${config.apiBaseUrl}/workspace/?token=${encodeURIComponent(token)}`;
 
   return NextResponse.json({ workspace_url: workspaceUrl, ready: true });
 }
 
-/**
- * Quick health check — tries to reach the tenant endpoint.
- * Returns true if it responds with anything other than 502/503/504.
- *
- * Tenants may use self-signed certs behind the ingress, so we probe
- * over HTTP to avoid TLS verification failures in serverless.
- */
+/** Quick health check over HTTP to avoid self-signed cert issues. */
 async function checkTenantHealth(endpoint: string): Promise<boolean> {
   try {
     const httpEndpoint = endpoint.replace(/^https:\/\//, 'http://');

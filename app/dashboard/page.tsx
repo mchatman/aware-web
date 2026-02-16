@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Dashboard page.
  *
- * Polls /api/connect until the tenant workspace is ready, showing a
- * friendly loading screen in the meantime. Once ready, embeds the
- * workspace in a full-screen iframe so the URL stays on dashboard.wareit.ai.
+ * Polls /api/connect until the tenant workspace is ready, then redirects
+ * to the workspace proxy on api.wareit.ai. Shows a loading screen while
+ * the workspace is being provisioned.
  */
 
-type Status = 'loading' | 'ready' | 'error';
+type Status = 'loading' | 'redirecting' | 'error';
 
 interface ConnectResponse {
   workspace_url?: string;
@@ -23,7 +23,6 @@ const POLL_INTERVAL = 3000;
 export default function Dashboard() {
   const [status, setStatus] = useState<Status>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,9 +58,9 @@ export default function Dashboard() {
         return;
       }
 
-      // Tenant is ready — use the proxied workspace URL.
-      setWorkspaceUrl(body.workspace_url!);
-      setStatus('ready');
+      // Tenant is ready — redirect to workspace proxy.
+      setStatus('redirecting');
+      window.location.href = body.workspace_url!;
     } catch {
       setErrorMessage('Failed to connect to server');
       setStatus('error');
@@ -84,23 +83,12 @@ export default function Dashboard() {
     );
   }
 
-  if (status === 'ready' && workspaceUrl) {
-    return (
-      <iframe
-        src={workspaceUrl}
-        className="w-screen h-screen border-0"
-        allow="clipboard-read; clipboard-write"
-      />
-    );
-  }
-
-  // Loading / polling state
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
-          <p>Setting up your workspace…</p>
+          <p>{status === 'redirecting' ? 'Opening workspace…' : 'Setting up your workspace…'}</p>
           <p className="text-sm text-gray-500">This usually takes just a few seconds.</p>
         </div>
       </div>
