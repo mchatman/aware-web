@@ -13,8 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 type Status = 'loading' | 'ready' | 'error';
 
 interface ConnectResponse {
-  endpoint?: string;
-  gateway_token?: string;
+  workspace_url?: string;
   ready?: boolean;
   message?: string;
 }
@@ -60,10 +59,8 @@ export default function Dashboard() {
         return;
       }
 
-      // Tenant is ready — build the auth callback URL for the iframe.
-      const target = new URL('/auth/callback', body.endpoint);
-      target.searchParams.set('token', body.gateway_token!);
-      setWorkspaceUrl(target.toString());
+      // Tenant is ready — use the proxied workspace URL.
+      setWorkspaceUrl(body.workspace_url!);
       setStatus('ready');
     } catch {
       setErrorMessage('Failed to connect to server');

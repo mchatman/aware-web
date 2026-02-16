@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiRequest } from '@/lib/api';
 import { getAuthToken } from '@/lib/cookies';
+import { config } from '@/lib/config';
 import type { InstanceResponse } from '@/lib/types';
 
 /**
  * GET /api/connect
  *
  * Server-side endpoint that reads the JWT from the httpOnly cookie and
- * resolves the user's tenant instance. Also probes the tenant to check
- * if it's actually ready before returning success.
+ * resolves the user's tenant instance. Returns a workspace URL that
+ * goes through bluefairy's reverse proxy (avoiding self-signed cert
+ * issues and keeping the tenant URL hidden from the browser).
  *
  * Returns:
- *   200 { endpoint, gateway_token, ready: true }  — tenant is up
- *   202 { endpoint, gateway_token, ready: false }  — tenant exists but not ready
- *   401 { message: "Not authenticated" }
- *   502 { message: "Failed to connect to workspace" }
+ *   200 { workspace_url, ready: true }  — tenant is up
+ *   202 { ready: false }                — tenant exists but not ready
+ *   401 { message }                     — not authenticated
+ *   502 { message }                     — lookup failed
  */
 export async function GET(request: NextRequest) {
   const token = getAuthToken(request);
@@ -41,14 +43,16 @@ export async function GET(request: NextRequest) {
   // Probe the tenant to see if it's actually serving traffic.
   const ready = await checkTenantHealth(data.endpoint);
 
-  return NextResponse.json(
-    {
-      endpoint: data.endpoint,
-      gateway_token: data.gateway_token,
-      ready,
-    },
-    { status: ready ? 200 : 202 },
-  );
+  if (!ready) {
+    return NextResponse.json({ ready: false }, { status: 202 });
+  }
+
+  // Build the workspace URL through bluefairy's reverse proxy.
+  // The iframe loads api.wareit.ai/workspace/ with the JWT as a query param.
+  // Bluefairy authenticates and proxies to the tenant over HTTP internally.
+  const workspaceUrl = `${config.apiBaseUrl}/workspace/?token=${encodeURIComponent(token)}`;
+
+  return NextResponse.json({ workspace_url: workspaceUrl, ready: true });
 }
 
 /**
@@ -60,7 +64,6 @@ export async function GET(request: NextRequest) {
  */
 async function checkTenantHealth(endpoint: string): Promise<boolean> {
   try {
-    // Use HTTP to avoid self-signed cert issues on the k8s ingress.
     const httpEndpoint = endpoint.replace(/^https:\/\//, 'http://');
     const res = await fetch(httpEndpoint, {
       method: 'HEAD',
