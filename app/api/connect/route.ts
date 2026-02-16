@@ -54,10 +54,15 @@ export async function GET(request: NextRequest) {
 /**
  * Quick health check — tries to reach the tenant endpoint.
  * Returns true if it responds with anything other than 502/503/504.
+ *
+ * Tenants may use self-signed certs behind the ingress, so we probe
+ * over HTTP to avoid TLS verification failures in serverless.
  */
 async function checkTenantHealth(endpoint: string): Promise<boolean> {
   try {
-    const res = await fetch(endpoint, {
+    // Use HTTP to avoid self-signed cert issues on the k8s ingress.
+    const httpEndpoint = endpoint.replace(/^https:\/\//, 'http://');
+    const res = await fetch(httpEndpoint, {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000),
     });
