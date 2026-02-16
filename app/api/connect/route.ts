@@ -50,7 +50,12 @@ export async function GET(request: NextRequest) {
   // Build the workspace URL through bluefairy's reverse proxy.
   // The iframe loads api.wareit.ai/workspace/ with the JWT as a query param.
   // Bluefairy authenticates and proxies to the tenant over HTTP internally.
-  const workspaceUrl = `${config.apiBaseUrl}/workspace/?token=${encodeURIComponent(token)}`;
+  //
+  // Also pass gatewayUrl so the tenant app connects its WebSocket through
+  // the proxy instead of trying to connect to the iframe's origin directly.
+  const wsBase = config.apiBaseUrl.replace(/^http/, 'ws');
+  const gatewayUrl = `${wsBase}/workspace`;
+  const workspaceUrl = `${config.apiBaseUrl}/workspace/?token=${encodeURIComponent(token)}&gatewayUrl=${encodeURIComponent(gatewayUrl)}`;
 
   return NextResponse.json({ workspace_url: workspaceUrl, ready: true });
 }
