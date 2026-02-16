@@ -7,11 +7,14 @@ import type { InstanceResponse } from '@/lib/types';
  * GET /api/connect
  *
  * Server-side endpoint that reads the JWT from the httpOnly cookie and
- * resolves the user's tenant instance.  The JWT never touches client JS.
+ * resolves the user's tenant instance. Also probes the tenant to check
+ * if it's actually ready before returning success.
  *
- * Query params:
- *   ?redirect=true  — 302 redirect to the tenant (used by window.location)
- *   (default)       — returns JSON { endpoint, gateway_token } or error
+ * Returns:
+ *   200 { endpoint, gateway_token, ready: true }  — tenant is up
+ *   202 { endpoint, gateway_token, ready: false }  — tenant exists but not ready
+ *   401 { message: "Not authenticated" }
+ *   502 { message: "Failed to connect to workspace" }
  */
 export async function GET(request: NextRequest) {
   const token = getAuthToken(request);
@@ -35,16 +38,31 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // If ?redirect, send the browser directly to the tenant.
-  if (request.nextUrl.searchParams.get('redirect') === 'true') {
-    const target = new URL('/auth/callback', data.endpoint);
-    target.searchParams.set('token', data.gateway_token);
-    return NextResponse.redirect(target.toString());
-  }
+  // Probe the tenant to see if it's actually serving traffic.
+  const ready = await checkTenantHealth(data.endpoint);
 
-  // Otherwise return the connection info as JSON.
-  return NextResponse.json({
-    endpoint: data.endpoint,
-    gateway_token: data.gateway_token,
-  });
+  return NextResponse.json(
+    {
+      endpoint: data.endpoint,
+      gateway_token: data.gateway_token,
+      ready,
+    },
+    { status: ready ? 200 : 202 },
+  );
+}
+
+/**
+ * Quick health check — tries to reach the tenant endpoint.
+ * Returns true if it responds with anything other than 502/503/504.
+ */
+async function checkTenantHealth(endpoint: string): Promise<boolean> {
+  try {
+    const res = await fetch(endpoint, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.status < 500;
+  } catch {
+    return false;
+  }
 }

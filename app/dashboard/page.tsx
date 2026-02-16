@@ -1,23 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Dashboard page.
  *
- * Fetches instance info from /api/connect (server-side, JWT stays in
- * httpOnly cookie), then redirects the browser to the tenant workspace.
- * Shows retry UI if the instance isn't ready yet.
+ * Polls /api/connect until the tenant workspace is ready, showing a
+ * friendly loading screen in the meantime. Once ready, embeds the
+ * workspace in a full-screen iframe so the URL stays on dashboard.wareit.ai.
  */
 
-type Status = 'loading' | 'redirecting' | 'error';
+type Status = 'loading' | 'ready' | 'error';
+
+interface ConnectResponse {
+  endpoint?: string;
+  gateway_token?: string;
+  ready?: boolean;
+  message?: string;
+}
+
+const POLL_INTERVAL = 3000;
 
 export default function Dashboard() {
   const [status, setStatus] = useState<Status>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     connect();
+    return () => {
+      if (pollingRef.current) clearTimeout(pollingRef.current);
+    };
   }, []);
 
   async function connect() {
@@ -32,19 +46,25 @@ export default function Dashboard() {
         return;
       }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ message: 'Unknown error' }));
+      const body: ConnectResponse = await res.json().catch(() => ({}));
+
+      if (res.status >= 500) {
         setErrorMessage(body.message || 'Failed to connect to workspace');
         setStatus('error');
         return;
       }
 
-      const { endpoint, gateway_token } = await res.json();
-      setStatus('redirecting');
+      // Instance exists but tenant not ready yet — poll.
+      if (!body.ready || res.status === 202) {
+        pollingRef.current = setTimeout(connect, POLL_INTERVAL);
+        return;
+      }
 
-      const target = new URL('/auth/callback', endpoint);
-      target.searchParams.set('token', gateway_token);
-      window.location.href = target.toString();
+      // Tenant is ready — build the auth callback URL for the iframe.
+      const target = new URL('/auth/callback', body.endpoint);
+      target.searchParams.set('token', body.gateway_token!);
+      setWorkspaceUrl(target.toString());
+      setStatus('ready');
     } catch {
       setErrorMessage('Failed to connect to server');
       setStatus('error');
@@ -67,13 +87,24 @@ export default function Dashboard() {
     );
   }
 
+  if (status === 'ready' && workspaceUrl) {
+    return (
+      <iframe
+        src={workspaceUrl}
+        className="w-screen h-screen border-0"
+        allow="clipboard-read; clipboard-write"
+      />
+    );
+  }
+
+  // Loading / polling state
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
-          <p>{status === 'redirecting' ? 'Redirecting…' : 'Opening your workspace…'}</p>
-          <p className="text-sm text-gray-500">Please wait…</p>
+          <p>Setting up your workspace…</p>
+          <p className="text-sm text-gray-500">This usually takes just a few seconds.</p>
         </div>
       </div>
     </div>
