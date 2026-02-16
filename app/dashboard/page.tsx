@@ -2,19 +2,31 @@
 
 import { useEffect, useState } from 'react';
 
-const DASHBOARD_URL = 'https://dashboard.wareit.ai';
+/**
+ * Dashboard page.
+ *
+ * This is a transient “loading” screen — it fetches the JWT from the
+ * server-side cookie (via /api/auth/token), then redirects the browser to
+ * the external dashboard app at NEXT_PUBLIC_DASHBOARD_URL, passing the
+ * token in the query string so the dashboard can establish its own session.
+ */
+
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://dashboard.wareit.ai';
+
+type Status = 'loading' | 'redirecting' | 'error';
 
 export default function Dashboard() {
-  const [status, setStatus] = useState<'loading' | 'redirecting' | 'error'>('loading');
+  const [status, setStatus] = useState<Status>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     async function redirect() {
       try {
-        // Get a fresh token from the login cookie
+        // Retrieve the access token stored in the HTTP-only cookie.
         const response = await fetch('/api/auth/token');
+
         if (!response.ok) {
-          // Not authenticated
+          // No valid session — send the user back to the login page.
           window.location.href = '/';
           return;
         }
@@ -22,10 +34,9 @@ export default function Dashboard() {
         const { token } = await response.json();
         setStatus('redirecting');
 
-        // Redirect to dashboard.wareit.ai with the JWT
-        // The callback sets an HTTP-only cookie and redirects to /
+        // Hand the JWT to the dashboard app via its /auth/callback endpoint.
         window.location.href = `${DASHBOARD_URL}/auth/callback?token=${encodeURIComponent(token)}`;
-      } catch (err) {
+      } catch {
         setErrorMessage('Failed to connect to server');
         setStatus('error');
       }
@@ -54,9 +65,9 @@ export default function Dashboard() {
     <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-          <p>Opening your workspace...</p>
-          <p className="text-sm text-gray-500">Please wait...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+          <p>Opening your workspace…</p>
+          <p className="text-sm text-gray-500">Please wait…</p>
         </div>
       </div>
     </div>
