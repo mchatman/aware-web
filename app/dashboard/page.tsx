@@ -3,20 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Dashboard page.
+ * Dashboard loading page.
  *
- * Polls /api/connect until the tenant workspace is ready, then redirects
- * to the workspace proxy on api.wareit.ai. Shows a loading screen while
- * the workspace is being provisioned.
+ * Polls /api/connect until the tenant workspace is ready, then navigates
+ * to "/" where bluefairy serves the workspace directly on the same domain.
  */
 
-type Status = 'loading' | 'redirecting' | 'error';
-
-interface ConnectResponse {
-  workspace_url?: string;
-  ready?: boolean;
-  message?: string;
-}
+type Status = 'loading' | 'error';
 
 const POLL_INTERVAL = 3000;
 
@@ -44,7 +37,7 @@ export default function Dashboard() {
         return;
       }
 
-      const body: ConnectResponse = await res.json().catch(() => ({}));
+      const body = await res.json().catch(() => ({}));
 
       if (res.status >= 500) {
         setErrorMessage(body.message || 'Failed to connect to workspace');
@@ -52,15 +45,15 @@ export default function Dashboard() {
         return;
       }
 
-      // Instance exists but tenant not ready yet — poll.
-      if (!body.ready || res.status === 202) {
+      // Not ready yet — poll.
+      if (!body.ready) {
         pollingRef.current = setTimeout(connect, POLL_INTERVAL);
         return;
       }
 
-      // Tenant is ready — redirect to workspace proxy.
-      setStatus('redirecting');
-      window.location.href = body.workspace_url!;
+      // Ready — navigate to root. Bluefairy will serve the workspace
+      // because we have an auth cookie.
+      window.location.href = '/';
     } catch {
       setErrorMessage('Failed to connect to server');
       setStatus('error');
@@ -88,7 +81,7 @@ export default function Dashboard() {
       <div className="text-white">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
-          <p>{status === 'redirecting' ? 'Opening workspace…' : 'Setting up your workspace…'}</p>
+          <p>Setting up your workspace…</p>
           <p className="text-sm text-gray-500">This usually takes just a few seconds.</p>
         </div>
       </div>

@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiRequest } from '@/lib/api';
 import { getAuthToken } from '@/lib/cookies';
-import { config } from '@/lib/config';
 import type { InstanceResponse } from '@/lib/types';
 
 /**
  * GET /api/connect
  *
- * Resolves the user's tenant instance and returns a workspace URL
- * that goes through bluefairy's reverse proxy on api.wareit.ai.
- * The browser redirects there directly (no iframe).
+ * Checks if the user's tenant workspace is ready.
+ * The actual workspace is served by bluefairy on the same domain
+ * (dashboard.wareit.ai) — the client just navigates to "/" when ready.
  */
 export async function GET(request: NextRequest) {
   const token = getAuthToken(request);
@@ -36,19 +35,9 @@ export async function GET(request: NextRequest) {
   // Probe the tenant to see if it's actually serving traffic.
   const ready = await checkTenantHealth(data.endpoint);
 
-  if (!ready) {
-    return NextResponse.json({ ready: false }, { status: 202 });
-  }
-
-  // Redirect through bluefairy's workspace proxy.
-  // No iframe — the browser navigates directly to api.wareit.ai/workspace/
-  // which reverse-proxies to the tenant over HTTP internally.
-  const workspaceUrl = `${config.apiBaseUrl}/workspace/?token=${encodeURIComponent(token)}`;
-
-  return NextResponse.json({ workspace_url: workspaceUrl, ready: true });
+  return NextResponse.json({ ready }, { status: ready ? 200 : 202 });
 }
 
-/** Quick health check over HTTP to avoid self-signed cert issues. */
 async function checkTenantHealth(endpoint: string): Promise<boolean> {
   try {
     const httpEndpoint = endpoint.replace(/^https:\/\//, 'http://');
