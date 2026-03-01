@@ -3,7 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthResponse, InstanceResponse, User } from './types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.wareit.ai';
+// Use same-origin API routes to avoid CORS issues.
+// Next.js API routes proxy to the real backend (api.wareit.ai).
+const API_URL = '';
 
 const STORAGE_KEYS = {
   accessToken: 'aware_access_token',
@@ -34,7 +36,16 @@ export function useAuth(): AuthContextValue {
 }
 
 async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  // Map backend paths to same-origin Next.js API routes
+  const routeMap: Record<string, string> = {
+    '/auth/login': '/api/auth/login',
+    '/auth/signup': '/api/auth/signup',
+    '/auth/refresh': '/api/auth/refresh',
+    '/me': '/api/me',
+    '/instance': '/api/instance',
+  };
+  const url = routeMap[path] || `/api${path}`;
+  const res = await fetch(`${API_URL}${url}`, {
     headers: { 'Content-Type': 'application/json', ...opts?.headers },
     ...opts,
   });
