@@ -81,14 +81,16 @@ export function GatewayProvider({ gatewayUrl, gatewayToken, children }: GatewayP
   useEffect(() => {
     if (!gatewayUrl || !gatewayToken) return;
 
-    // Convert HTTP(S) endpoint to WSS
+    // Convert HTTP(S) endpoint to WSS.
+    // Always use wss:// when served over HTTPS (mixed content blocked by browsers).
     let wsUrl = gatewayUrl;
+    const useSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
     if (wsUrl.startsWith('https://')) {
       wsUrl = 'wss://' + wsUrl.slice('https://'.length);
     } else if (wsUrl.startsWith('http://')) {
-      wsUrl = 'ws://' + wsUrl.slice('http://'.length);
+      wsUrl = (useSecure ? 'wss://' : 'ws://') + wsUrl.slice('http://'.length);
     } else if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-      wsUrl = 'wss://' + wsUrl;
+      wsUrl = (useSecure ? 'wss://' : 'ws://') + wsUrl;
     }
 
     console.log("[gateway-context] connecting to", wsUrl, "token?", !!gatewayToken);
