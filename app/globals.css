@@ -65,7 +65,7 @@ body {
   flex-direction: column;
   width: 100%;
   max-width: 640px;
-  min-height: 100dvh;
+  height: 100dvh;
   background: var(--bg);
   box-shadow: 0 0 60px rgba(0, 192, 166, 0.05);
   position: relative;
