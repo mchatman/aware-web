@@ -56,8 +56,10 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
       const parsed = JSON.parse(text);
       throw new Error(parsed.message || parsed.error || text);
     } catch (e) {
-      if (e instanceof Error && e.message !== text) throw e;
-      throw new Error(text || res.statusText);
+      // If JSON.parse failed (SyntaxError), use the raw text as the error
+      if (e instanceof SyntaxError) throw new Error(text || res.statusText);
+      // Otherwise re-throw (it's the Error we created above)
+      throw e;
     }
   }
   return res.json();
